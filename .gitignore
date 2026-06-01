@@ -1,0 +1,7 @@
+.DS_Store
+robot-reports/
+*.xml
+*.xlsx
+*.zip
+*.png
+*.jpg

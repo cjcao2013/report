@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Execution Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+          font-family: 'Segoe UI', Roboto, sans-serif;
+          background-color: #f0f2f5;
+        }
+        .layout {
+          display: flex;
+          height: 100vh;
+          position: relative;        /* Ensures it sits above default flow */
+          z-index: 1;
+          position: sticky;
+        }
+        .vertical-tabs {
+          width: 80px;
+          background-color: #2c3e50;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding-top: 20px;
+        }
+        .tab-icon {
+          font-size: 24px;
+          color: white;
+          margin: 20px 0;
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        }
+        .tab-icon:hover {
+          transform: scale(1.2);
+          color: #00bfff;
+        }
+        .tab-icon.active {
+          color: #1abc9c;
+        }
+        .panel {
+          padding: 20px;
+          overflow-y: auto;
+          opacity: 0;
+          transform: translateY(10px);
+          transition: opacity 0.4s ease, transform 0.4s ease;
+          position: absolute;
+          width: calc(100% - 60px);
+          left: 60px;
+          top: 0;
+          height: 100%;
+          background-color: #f0f2f5;
+          z-index: 0;
+          pointer-events: none;
+        }
+        .panel.active {
+          opacity: 1;
+          transform: translateY(0);
+          z-index: 1;
+          pointer-events: auto;
+        }
+        .test-layout {
+          display: flex;
+        }
+        #test-list {
+          flex: 1;
+          background-color: #fff;
+          padding: 15px;
+          border-right: 2px solid #ccc;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+          max-height: 80vh;
+          overflow-y: auto;
+        }
+        #details {
+          flex: 2;
+          background-color: #fff;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .test-card {
+          display: flex;
+          align-items: center;
+          background-color: #fff;
+          border-left: 5px solid;
+          padding: 12px;
+          margin-bottom: 12px;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        }
+        .test-card:hover {
+          transform: scale(1.02);
+        }
+        .test-card.active {
+          background-color: #e6f7ff;
+          border-left-color: #007bff;
+        }
+        .PASSED { border-color: #28a745; }
+        .FAILED { border-color: #dc3545; }
+        .SKIPPED { border-color: #ffc107; }
+        .status-icon {
+          font-size: 20px;
+          margin-right: 12px;
+        }
+        .test-info h4 {
+          margin: 0;
+          font-size: 16px;
+        }
+        .test-info p {
+          margin: 2px 0;
+          font-size: 13px;
+          color: #555;
+        }
+        .details-box {
+          background-color: #fff;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+        .summary-box {
+          background-color: #fff;
+          padding: 30px;
+          border-radius: 10px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.05);
+          max-width: 900px;
+          margin: 30px auto;
+          text-align: center;
+        }
+        .summary-grid {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 40px;
+        }
+        .summary-details {
+          min-width: 250px;
+          padding: 20px;
+          background-color: #f8f9fa;
+          border: 1px solid #ccc;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+          text-align: left;
+        }
+        .summary-details h3 {
+          margin-top: 0;
+        }
+        .summary-details p {
+          font-size: 16px;
+          margin: 8px 0;
+        }
+        .report-header {
+           position: sticky;
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+           background-color: #2c3e50;
+           color: white;
+           padding: 3px;
+           border-radius: 5px;
+           position: relative;        /* Ensures it sits above default flow */
+           z-index: 5;
+        }
+        .status-pass {
+          color: green;
+          font-weight: bold;
+        }
+
+        .status-fail {
+          color: red;
+          font-weight: bold;
+        }
+        .scroll-box {
+          height: 80px;       /* Adjust height as needed */
+          overflow-y: auto;
+          border: 2px solid #ccc;
+          padding: 0;
+          background-color: #f9f9f9;
+          font-size: 13px;
+          line-height: 1.4;
+          white-space: pre-wrap;   /* Preserves line breaks */
+          border-radius: 8px;
+          width: 400px;
+          font-family: Segoe UI;
+          margin:0
+          box-sizing: border-box;
+          display: flex;
+          align-items: flex-start;
+          justify-content: flex-start
+          text-align: left
+          vertical-align: top
+        }
+        .expected-label {
+          margin-top: 0;       /* Removes space above the label */
+          margin-bottom: 1px;  /* Optional: small space between label and box */
+          padding: 0;
+        }
+        .result-row {
+          display: flex;
+          gap: 20px; /* Space between columns */
+          margin-top: 10px;
+        }
+
+        .result-column {
+          flex: 1; /* Equal width columns */
+          max-width: 50%;
+        }
+
+        .result-label {
+          margin: 0;
+          padding: 0;
+          font-weight: 500;
+          font-size: 14px;
+          font-family: Segoe UI;
+        }
+        .verification-table {
+            width: 50%;
+            border-collapse: collapse;
+            margin-top: 1em;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+          }
+
+          .verification-table th,
+          .verification-table td {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            text-align: left;
+          }
+
+          .verification-table th {
+            background-color: #f4f4f4;
+            color: #333;
+          }
+
+          .verification-table tr:nth-child(even) {
+            background-color: #fafafa;
+          }
+
+          .verification-table tr:hover {
+            background-color: #f0f8ff;
+          }
+        .timestamp {
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 1;
+          }
+
+        .screenshot-box {
+            margin-top: 20px;
+        }
+        .screenshot-img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        .report-logo {
+            height: 60px; /* Adjust as needed */
+            width: 60px
+        }
+
+    </style>
+</head>
+<body>
+    <div class="report-header">
+            <img class="report-logo" src="D:/WorkSpace/code/omne-qa-mob-jp/CustomLibraries/FWD_logo.png">
+      <h1>OMNE Report</h1>
+        <div class="timestamp">Generated Time:  2026-05-29 12:32:38</div>
+    </div>
+    <div class="layout">
+        <div class="vertical-tabs">
+            <div class="tab-icon active" onclick="switchTab('results')" title="Test Results">🧪</div>
+            <div class="tab-icon" onclick="switchTab('summary')" title="Summary">📊</div>
+        </div>
+        <div id="results" class="panel active">
+        <div class="test-layout">
+          <div id="test-list" style="width: 30%; padding: 10px;">
+            <h3>Test Case List</h3>
+          </div>
+          <div id="details" style="width: 70%; padding: 10px;">
+            <h3>Loading first test case...</h3>
+          </div>
+          </div>
+        </div>
+        <div id="summary" class="panel">
+            <div class="summary-box">
+              <h2>Test Summary</h2>
+              <div class="summary-grid">
+                <canvas id="summaryChart" width="400" height="400"></canvas>
+                <div class="summary-details">
+                  <h3>📋 Test Result Summary</h3>
+                  <p><strong>Total Executed:</strong> <span id="total-count"></span></p>
+                  <p><strong>✅ Passed:</strong> <span id="passed-count"></span></p>
+                  <p><strong>❌ Failed:</strong> <span id="failed-count"></span></p>
+                  <p><strong>⏭️ Skipped:</strong> <span id="skipped-count"></span></p>
+                </div>
+              </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const jobs = [{"TestCaseId": "TC_15_Ins_JP_IOS_Claim_outpatient_Surgery_illness", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 11:21:14", "ExecutionTime": "00:09:28", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | FWD Insurance Flow of Submit claim Failed due to :AssertionError", "Remark": "", "VerificationPoints": [{"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_17_Ins_JP_IOS_Claim_outpatient_Treatment_Radiotherapy", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 11:29:08", "ExecutionTime": "00:07:19", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | FWD Insurance Flow of Submit claim Failed due to :AssertionError", "Remark": "", "VerificationPoints": [{"FieldName": "Diagnosis Name", "Expected_Source": "TestData", "Actual_Source": "", "Expected": "\u507d\u6027\u30b3\u30ec\u30e9", "Actual": "", "Status": "FAIL"}, {"FieldName": "RadioTherapy Start Date", "Expected_Source": "TestData", "Actual_Source": "", "Expected": "2025/01/30", "Actual": "", "Status": "FAIL"}, {"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_18_Ins_JP_IOS_Claim_outpatient_Treatment_Anti-cancer_Treatment", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 11:38:01", "ExecutionTime": "00:08:15", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000016539 | SignIn Successfully With User : noah_5@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000016539 | SignIn Successfully With User : noah_5@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | FWD Insurance Flow of Submit claim Failed due to :AssertionError", "Remark": "", "VerificationPoints": [{"FieldName": "Diagnosis Name", "Expected_Source": "TestData", "Actual_Source": "", "Expected": "\u30cd\u30ba\u30df\u30c1\u30d5\u30b9\u83cc\u8178\u708e", "Actual": "", "Status": "FAIL"}, {"FieldName": "Hospital Name", "Expected_Source": "TestData", "Actual_Source": "", "Expected": "\u702c\u6238\u5ca1\u533b\u9662", "Actual": "", "Status": "FAIL"}, {"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_33_Ins_JP_IOS_Claim_outpatient_Surgery_illness", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 11:46:41", "ExecutionTime": "00:08:02", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000016539 | SignIn Successfully With User : noah_5@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000016539 | SignIn Successfully With User : noah_5@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | FWD Insurance Flow of Submit claim Failed due to :AssertionError", "Remark": "", "VerificationPoints": [{"FieldName": "Diagnosis Name", "Expected_Source": "TestData", "Actual_Source": "", "Expected": "\u30cd\u30ba\u30df\u30c1\u30d5\u30b9\u83cc\u8178\u708e", "Actual": "", "Status": "FAIL"}, {"FieldName": "Hospital Name", "Expected_Source": "TestData", "Actual_Source": "", "Expected": "\u702c\u6238\u5ca1\u533b\u9662", "Actual": "", "Status": "FAIL"}, {"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_36_Ins_JP_IOS_Onboard", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 11:47:38", "ExecutionTime": "00:00:20", "Workflow": "OMNE Executor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000019147 | SignUP API Failed due to :No keyword with name 'FakerLibrary.first_name' found. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000019147 | SignUP API Failed due to :No keyword with name 'FakerLibrary.first_name' found. | SignUp Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000019147 | SignUP API Failed due to :No keyword with name 'FakerLibrary.first_name' found. | SignUp Failed due to :AssertionError | SignUp Failed due to :Element locator 'xpath=//XCUIElementTypeOther[@name=\"Country\"]' did not match any elements after 10 seconds", "Remark": "", "VerificationPoints": [{"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_12_Ins_JP_IOS_LIFEJ_Change_Personal_Details_001", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 11:57:00", "ExecutionTime": "00:08:46", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "", "Remark": "", "VerificationPoints": [{"FieldName": "MobileNumber_GuidedMessage", "Expected_Source": "static", "Actual_Source": "OMNE_MobileNumberChangePage", "Expected": "\u643a\u5e2f\u96fb\u8a71\u756a\u53f7\u3092\u3054\u5165\u529b\u304f\u3060\u3055\u3044\u3002\u203b050\u304b\u3089\u59cb\u307e\u308bIP\u96fb\u8a71\u756a\u53f7\u306f\u3054\u5229\u7528\u3044\u305f\u3060\u3051\u307e\u305b\u3093\u3002\u643a\u5e2f\u96fb\u8a71\u756a\u53f7\u306f\u5148\u982d\u306e\uff10\u304a\u3088\u3073\u30cf\u30a4\u30d5\u30f3\u3092\u9664\u3044\u3066\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044\u3002\u4f8b\uff09080-xxxx-xxxx\u219280xxxxxxxx", "Actual": "\u643a\u5e2f\u96fb\u8a71\u756a\u53f7\u3092\u3054\u5165\u529b\u304f\u3060\u3055\u3044\u3002\u203b050\u304b\u3089\u59cb\u307e\u308bIP\u96fb\u8a71\u756a\u53f7\u306f\u3054\u5229\u7528\u3044\u305f\u3060\u3051\u307e\u305b\u3093\u3002\u643a\u5e2f\u96fb\u8a71\u756a\u53f7\u306f\u5148\u982d\u306e\uff10\u304a\u3088\u3073\u30cf\u30a4\u30d5\u30f3\u3092\u9664\u3044\u3066\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044\u3002\u4f8b\uff09080-xxxx-xxxx\u219280xxxxxxxx", "Status": "PASS"}, {"FieldName": "OLD_Mobile_Number", "Expected_Source": "", "Actual_Source": "OMNE_MobileNumberChangePage", "Expected": "", "Actual": "8000000000", "Status": "FAIL"}, {"FieldName": "Mobile_No_Change_Page_Policy_Number", "Expected_Source": "OMNE_MobileNumberChangePage", "Actual_Source": "OMNE_Transaction_Page", "Expected": "9000030035", "Actual": "9000030035", "Status": "PASS"}, {"FieldName": "Mobile_No_Change_Page_Policy_Name", "Expected_Source": "OMNE_MobileNumberChangePage", "Actual_Source": "OMNE_Transaction_Page", "Expected": "FWD\u533b\u7642", "Actual": "FWD\u533b\u7642", "Status": "PASS"}, {"FieldName": "MobileNumber_Acknowledge_Text", "Expected_Source": "static", "Actual_Source": "OMNE_MobileNumberChangePage", "Expected": "IacknowledgethatIhaveread,understoodandagreedwiththeterms&conditions", "Actual": "IacknowledgethatIhaveread,understoodandagreedwiththeterms&conditions", "Status": "PASS"}, {"FieldName": "Transaction_Status", "Expected_Source": "OMNE_Transaction_Page", "Actual_Source": "", "Expected": "Completed", "Actual": "", "Status": "FAIL"}, {"FieldName": "New_Mobile_Number", "Expected_Source": "", "Actual_Source": "OMNE_Transaction_Page", "Expected": "", "Actual": "06000000000", "Status": "FAIL"}, {"FieldName": "Policy_Number", "Expected_Source": "", "Actual_Source": "OMNE_Transaction_Page", "Expected": "", "Actual": "9000030035", "Status": "FAIL"}, {"FieldName": "Policy_Name", "Expected_Source": "", "Actual_Source": "OMNE_Transaction_Page", "Expected": "", "Actual": "FWD\u533b\u7642", "Status": "FAIL"}, {"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Successful", "Status": "PASS"}], "Images": []}, {"TestCaseId": "TC_12_Ins_JP_IOS_KLIP_Change_Personal_Details_001", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 11:59:09", "ExecutionTime": "00:01:30", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: \uff759739320319 | SignIn Successfully With User : jpstgdata_2feb26_6@mailsac.com | FWD Insurance Flow of Manage Failed due to :Element locator 'chain=**/XCUIElementTypeButton[`label == 'Insurance'`]' did not match any elements after 35 seconds", "Remark": "", "VerificationPoints": [{"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_05_Ins_JP_IOS_KLIP_Master_Card_001", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 12:12:07", "ExecutionTime": "00:12:19", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: \uff729711770115 | SignIn Successfully With User : jpuserqk13@mailsac.com | Transaction Success Page Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' did not match any elements after 30 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: \uff729711770115 | SignIn Successfully With User : jpuserqk13@mailsac.com | Transaction Success Page Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' did not match any elements after 30 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: \uff729711770115 | SignIn Successfully With User : jpuserqk13@mailsac.com | Transaction Success Page Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' did not match any elements after 30 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError", "Remark": "", "VerificationPoints": [{"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_05_Ins_JP_IOS_LIFEJ_Change_Credit_Card_001", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 12:22:31", "ExecutionTime": "00:09:50", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004786 | SignIn Successfully With User : yds3@mailsac.com | Transaction Success Page Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`label == \"Service request(s)\"`]' did not match any elements after 30 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004786 | SignIn Successfully With User : yds3@mailsac.com | Transaction Success Page Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`label == \"Service request(s)\"`]' did not match any elements after 30 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004786 | SignIn Successfully With User : yds3@mailsac.com | Transaction Success Page Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`label == \"Service request(s)\"`]' did not match any elements after 30 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError", "Remark": "", "VerificationPoints": [{"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_37_Ins_JP_IOS_LIFEJ_Pending_Management_Policy_Certificate_001", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 12:27:34", "ExecutionTime": "00:04:27", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000006789 | SignIn Successfully With User : jpdata1@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000006789'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000006789 | SignIn Successfully With User : jpdata1@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000006789'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000006789 | SignIn Successfully With User : jpdata1@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000006789'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError", "Remark": "", "VerificationPoints": [{"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}, {"TestCaseId": "TC_40_Ins_JP_IOS_KLIP_Pending_Management_Policy_Certificate_001", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 12:32:35", "ExecutionTime": "00:04:27", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: \uff759927770456 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '\uff759927770456'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: \uff759927770456 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '\uff759927770456'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: \uff759927770456 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '\uff759927770456'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError", "Remark": "", "VerificationPoints": [{"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}];
+        const summary = {"total": 11, "passed": 0, "failed": 11, "skipped": 0};
+        let currentIndex = 0;
+        const listContainer = document.getElementById("test-list");
+
+        // Render test case cards
+        jobs.forEach((job, index) => {
+            const card = document.createElement("div");
+            card.className = `test-card ${job.ExecutionStatus}`;
+            card.onclick = () => showDetails(index);
+
+            const icon = document.createElement("div");
+            icon.className = "status-icon";
+            icon.textContent = job.ExecutionStatus === "PASS" ? "✅" :
+                               job.ExecutionStatus === "FAIL" ? "❌" : "⏭️";
+
+            const info = document.createElement("div");
+            info.className = "test-info";
+            info.innerHTML = `<h5>${job.TestCaseId}</h5>`;
+
+
+            card.appendChild(icon);
+            card.appendChild(info);
+
+            listContainer.appendChild(card);
+        });
+
+        // Show test case details
+        function showDetails(index) {
+            currentIndex = index;
+            document.querySelectorAll(".test-card").forEach(card => card.classList.remove("active"));
+            document.querySelectorAll(".test-card")[index].classList.add("active");
+
+            const job = jobs[index];
+            let verificationTable = "";
+            if (
+              job.VerificationPoints &&
+              job.VerificationPoints.length > 0
+            ) {
+              verificationTable += `
+              <h3>Verification Points</h3>
+              <table class="verification-table">
+                <thead>
+                  <tr>
+                    <th>Field Name</th>
+                    <th>Expected Source</th>
+                    <th>Actual Source</th>
+                    <th>Expected Result</th>
+                    <th>Actual Result</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+            `;
+
+            job.VerificationPoints.forEach(vp => {
+              const statusClass = vp.Status === "PASS" ? "status-pass" : "status-fail";
+              verificationTable += `
+                <tr>
+                  <td>${vp.FieldName}</td>
+                  <td>${vp.Expected_Source}</td>
+                  <td>${vp.Actual_Source}</td>
+                  <td>${vp.Expected}</td>
+                  <td>${vp.Actual}</td>
+                  <td class="${statusClass}">${vp.Status}</td>
+                </tr>
+              `;
+            });
+
+              verificationTable += "</tbody></table>";
+            }
+
+            let Screenshot = "";
+            job.Images.forEach(ig => {
+                let screenshot_path = ig
+                let split_screenshot_name = screenshot_path.split("/0")
+                let screenshot_name = split_screenshot_name[split_screenshot_name.length -1]
+                Screenshot += `
+                    <span>${screenshot_name}</span>
+                    <img src="${ig}" alt="image" class="screenshot-img">
+                `;
+            });
+            document.getElementById("details").innerHTML = `
+              <div class="details-box">
+                <h2>${job.TestCaseId}</h2>
+                <p>
+                  <strong>Status:</strong>
+                  <span class="${job.ExecutionStatus === 'PASS' ? 'status-pass' : 'status-fail'}">
+                    ${job.ExecutionStatus}
+                  </span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Finished At:</strong> ${job.FinishedAt} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Duration:</strong> ${job.ExecutionTime}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Executed by:</strong> FGZLPT230023
+                </p>
+                <p><strong>Workflow:</strong> ${job.Workflow} &nbsp;&nbsp; <strong>Type:</strong> ${job.TestType}</p>
+                <div class="result-row">
+                  <div class="result-column">
+                    <p class="result-label"><strong>Actual Result:</strong></p>
+                    <div class="scroll-box">
+                      ${job.ActualResult}
+                    </div>
+                  </div>
+                  <div class="result-column">
+                    <p class="result-label"><strong>Remark:</strong></p>
+                    <div class="scroll-box">
+                      ${job.Remark || ''}
+                    </div>
+                  </div>
+                </div>
+                  ${verificationTable}
+<!--                <div class="screenshot-box">-->
+<!--                    <h3>Screenshots</h3>-->
+<!--                    ${Screenshot}-->
+<!--                 </div>-->
+                ${job.Remark ? `<p><strong>Note:</strong> ${job.Remark}</p>` : ""}
+              </div>
+            `;
+        }
+        // Auto-load first test case
+        if (jobs.length > 0) {
+            showDetails(0);
+        }
+        // Insert summary counts
+        document.getElementById("total-count").textContent = summary.total;
+        document.getElementById("passed-count").textContent = summary.passed;
+        document.getElementById("failed-count").textContent = summary.failed;
+        document.getElementById("skipped-count").textContent = summary.skipped;
+
+        // Chart.js donut chart
+        const ctx = document.getElementById("summaryChart").getContext("2d");
+        new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Passed", "Failed", "Skipped"],
+          datasets: [{
+            data: [summary.passed, summary.failed, summary.skipped],
+            backgroundColor: ["#28a745", "#dc3545", "#ffc107"],
+            borderColor: ["#ffffff", "#ffffff", "#ffffff"],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                font: { size: 14 },
+                color: "#333"
+              }
+            },
+            title: {
+              display: true,
+              text: "Test Case Status Distribution",
+              font: { size: 18 },
+              color: "#333"
+            }
+          }
+        }
+        });
+        // Tab switching with animation
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-icon").forEach(icon => icon.classList.remove("active"));
+            document.querySelector(`.tab-icon[onclick="switchTab('${tabId}')"]`).classList.add("active");
+
+            document.querySelectorAll(".panel").forEach(panel => {
+              panel.classList.remove("active");
+            });
+
+            const targetPanel = document.getElementById(tabId);
+            targetPanel.style.display = "block";
+            setTimeout(() => targetPanel.classList.add("active"), 10);
+        }
+
+    </script>
+</body>
+</html>

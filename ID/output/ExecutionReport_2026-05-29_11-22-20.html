@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Execution Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+          font-family: 'Segoe UI', Roboto, sans-serif;
+          background-color: #f0f2f5;
+        }
+        .layout {
+          display: flex;
+          height: 100vh;
+          position: relative;        /* Ensures it sits above default flow */
+          z-index: 1;
+          position: sticky;
+        }
+        .vertical-tabs {
+          width: 80px;
+          background-color: #2c3e50;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding-top: 20px;
+        }
+        .tab-icon {
+          font-size: 24px;
+          color: white;
+          margin: 20px 0;
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        }
+        .tab-icon:hover {
+          transform: scale(1.2);
+          color: #00bfff;
+        }
+        .tab-icon.active {
+          color: #1abc9c;
+        }
+        .panel {
+          padding: 20px;
+          overflow-y: auto;
+          opacity: 0;
+          transform: translateY(10px);
+          transition: opacity 0.4s ease, transform 0.4s ease;
+          position: absolute;
+          width: calc(100% - 60px);
+          left: 60px;
+          top: 0;
+          height: 100%;
+          background-color: #f0f2f5;
+          z-index: 0;
+          pointer-events: none;
+        }
+        .panel.active {
+          opacity: 1;
+          transform: translateY(0);
+          z-index: 1;
+          pointer-events: auto;
+        }
+        .test-layout {
+          display: flex;
+        }
+        #test-list {
+          flex: 1;
+          background-color: #fff;
+          padding: 15px;
+          border-right: 2px solid #ccc;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+          max-height: 80vh;
+          overflow-y: auto;
+        }
+        #details {
+          flex: 2;
+          background-color: #fff;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .test-card {
+          display: flex;
+          align-items: center;
+          background-color: #fff;
+          border-left: 5px solid;
+          padding: 12px;
+          margin-bottom: 12px;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        }
+        .test-card:hover {
+          transform: scale(1.02);
+        }
+        .test-card.active {
+          background-color: #e6f7ff;
+          border-left-color: #007bff;
+        }
+        .PASSED { border-color: #28a745; }
+        .FAILED { border-color: #dc3545; }
+        .SKIPPED { border-color: #ffc107; }
+        .status-icon {
+          font-size: 20px;
+          margin-right: 12px;
+        }
+        .test-info h4 {
+          margin: 0;
+          font-size: 16px;
+        }
+        .test-info p {
+          margin: 2px 0;
+          font-size: 13px;
+          color: #555;
+        }
+        .details-box {
+          background-color: #fff;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+        .summary-box {
+          background-color: #fff;
+          padding: 30px;
+          border-radius: 10px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.05);
+          max-width: 900px;
+          margin: 30px auto;
+          text-align: center;
+        }
+        .summary-grid {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 40px;
+        }
+        .summary-details {
+          min-width: 250px;
+          padding: 20px;
+          background-color: #f8f9fa;
+          border: 1px solid #ccc;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+          text-align: left;
+        }
+        .summary-details h3 {
+          margin-top: 0;
+        }
+        .summary-details p {
+          font-size: 16px;
+          margin: 8px 0;
+        }
+        .report-header {
+           position: sticky;
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+           background-color: #2c3e50;
+           color: white;
+           padding: 3px;
+           border-radius: 5px;
+           position: relative;        /* Ensures it sits above default flow */
+           z-index: 5;
+        }
+        .status-pass {
+          color: green;
+          font-weight: bold;
+        }
+
+        .status-fail {
+          color: red;
+          font-weight: bold;
+        }
+        .scroll-box {
+          height: 80px;       /* Adjust height as needed */
+          overflow-y: auto;
+          border: 2px solid #ccc;
+          padding: 0;
+          background-color: #f9f9f9;
+          font-size: 13px;
+          line-height: 1.4;
+          white-space: pre-wrap;   /* Preserves line breaks */
+          border-radius: 8px;
+          width: 400px;
+          font-family: Segoe UI;
+          margin:0
+          box-sizing: border-box;
+          display: flex;
+          align-items: flex-start;
+          justify-content: flex-start
+          text-align: left
+          vertical-align: top
+        }
+        .expected-label {
+          margin-top: 0;       /* Removes space above the label */
+          margin-bottom: 1px;  /* Optional: small space between label and box */
+          padding: 0;
+        }
+        .result-row {
+          display: flex;
+          gap: 20px; /* Space between columns */
+          margin-top: 10px;
+        }
+
+        .result-column {
+          flex: 1; /* Equal width columns */
+          max-width: 50%;
+        }
+
+        .result-label {
+          margin: 0;
+          padding: 0;
+          font-weight: 500;
+          font-size: 14px;
+          font-family: Segoe UI;
+        }
+        .verification-table {
+            width: 50%;
+            border-collapse: collapse;
+            margin-top: 1em;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+          }
+
+          .verification-table th,
+          .verification-table td {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            text-align: left;
+          }
+
+          .verification-table th {
+            background-color: #f4f4f4;
+            color: #333;
+          }
+
+          .verification-table tr:nth-child(even) {
+            background-color: #fafafa;
+          }
+
+          .verification-table tr:hover {
+            background-color: #f0f8ff;
+          }
+        .timestamp {
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 1;
+          }
+
+        .screenshot-box {
+            margin-top: 20px;
+        }
+        .screenshot-img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        .report-logo {
+            height: 60px; /* Adjust as needed */
+            width: 60px
+        }
+
+    </style>
+</head>
+<body>
+    <div class="report-header">
+            <img class="report-logo" src="D:/OMNE-replace/omne-qa-mob-id/CustomLibraries/FWD_logo.png">
+      <h1>OMNE Report</h1>
+        <div class="timestamp">Generated Time:  2026-05-29 11:33:53</div>
+    </div>
+    <div class="layout">
+        <div class="vertical-tabs">
+            <div class="tab-icon active" onclick="switchTab('results')" title="Test Results">🧪</div>
+            <div class="tab-icon" onclick="switchTab('summary')" title="Summary">📊</div>
+        </div>
+        <div id="results" class="panel active">
+        <div class="test-layout">
+          <div id="test-list" style="width: 30%; padding: 10px;">
+            <h3>Test Case List</h3>
+          </div>
+          <div id="details" style="width: 70%; padding: 10px;">
+            <h3>Loading first test case...</h3>
+          </div>
+          </div>
+        </div>
+        <div id="summary" class="panel">
+            <div class="summary-box">
+              <h2>Test Summary</h2>
+              <div class="summary-grid">
+                <canvas id="summaryChart" width="400" height="400"></canvas>
+                <div class="summary-details">
+                  <h3>📋 Test Result Summary</h3>
+                  <p><strong>Total Executed:</strong> <span id="total-count"></span></p>
+                  <p><strong>✅ Passed:</strong> <span id="passed-count"></span></p>
+                  <p><strong>❌ Failed:</strong> <span id="failed-count"></span></p>
+                  <p><strong>⏭️ Skipped:</strong> <span id="skipped-count"></span></p>
+                </div>
+              </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const jobs = [{"TestCaseId": "TC_13_Ins_INDO_Android_View_Investment_Information_001", "ExecutionStatus": "PASS", "FinishedAt": "2026-05-29 11:31:59", "ExecutionTime": "00:09:21", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : Google Pixel 7 | Policy Number: C0161429 | Sign In Successfully With User : indonesia25@mailsac.com", "Remark": "", "VerificationPoints": [{"FieldName": "Login_Welcome_txt", "Expected_Source": "Static", "Actual_Source": "OMNE_Application", "Expected": "Welcome back!", "Actual": "Welcome back!", "Status": "PASS"}, {"FieldName": "Login_Don't_have_account_txt", "Expected_Source": "Static", "Actual_Source": "OMNE_Application", "Expected": "Don't have an account yet?", "Actual": "Don't have an account yet?", "Status": "PASS"}, {"FieldName": "Mobile_No_Enable_By_Default", "Expected_Source": "Static", "Actual_Source": "OMNE_Application", "Expected": "true", "Actual": "true", "Status": "PASS"}, {"FieldName": "By_Default_EN_Language", "Expected_Source": "Static", "Actual_Source": "OMNE_Application", "Expected": "EN", "Actual": "EN", "Status": "PASS"}, {"FieldName": "Policy1_ProductName", "Expected_Source": "View Investment DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "FWD Investra Link", "Actual": "FWD Investra Link", "Status": "PASS"}, {"FieldName": "Policy1_Status", "Expected_Source": "View Investment DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "Active", "Actual": "Active", "Status": "PASS"}, {"FieldName": "Policy1_Number", "Expected_Source": "View Investment DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "C0207552", "Actual": "C0207552", "Status": "PASS"}, {"FieldName": "Policy2_ProductName", "Expected_Source": "View Investment DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "Investra Premier", "Actual": "Investra Premier", "Status": "PASS"}, {"FieldName": "Policy2_Status", "Expected_Source": "View Investment DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "Active", "Actual": "Active", "Status": "PASS"}, {"FieldName": "Policy2_Number", "Expected_Source": "View Investment DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "C0161429", "Actual": "C0161429", "Status": "PASS"}, {"FieldName": "SelectedPolicyProductName", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "Investra Premier", "Actual": "Investra Premier", "Status": "PASS"}, {"FieldName": "SelectedPolicyNumber", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "C0161429", "Actual": "C0161429", "Status": "PASS"}, {"FieldName": "SelectedPolicyType", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "", "Actual": "Active", "Status": "FAIL"}, {"FieldName": "SelectedPolicyStatus", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "Active", "Actual": "Current value", "Status": "FAIL"}, {"FieldName": "SelectedPolicyCurrentValue", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "9170927.19", "Actual": "9170927.19", "Status": "PASS"}, {"FieldName": "Invested_Fund0_Name", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "FWD Excellent Balanced Fund", "Actual": "FWD Excellent Balanced Fund", "Status": "PASS"}, {"FieldName": "Invested_Fund0_Percentage", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "61.23%", "Actual": "61.23%", "Status": "PASS"}, {"FieldName": "Invested_Fund0_CurrentValue", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "5615274.91", "Actual": "5615274.91", "Status": "PASS"}, {"FieldName": "Invested_Fund0_UnitHolding", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "5812.19", "Actual": "5812.19", "Status": "PASS"}, {"FieldName": "Invested_Fund0_UnitPrice", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "966.12", "Actual": "966.12", "Status": "PASS"}, {"FieldName": "Invested_Fund0_Date", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "01 Jul 2035", "Actual": "01 Jul 2035", "Status": "PASS"}, {"FieldName": "Invested_Fund1_Name", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "FWD Sprint Equity Fund", "Actual": "FWD Sprint Equity Fund", "Status": "PASS"}, {"FieldName": "Invested_Fund1_Percentage", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "38.77%", "Actual": "38.77%", "Status": "PASS"}, {"FieldName": "Invested_Fund1_CurrentValue", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "3555652.28", "Actual": "3555652.28", "Status": "PASS"}, {"FieldName": "Invested_Fund1_UnitHolding", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "106.68", "Actual": "106.68", "Status": "PASS"}, {"FieldName": "Invested_Fund1_UnitPrice", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "33331.41", "Actual": "33331.41", "Status": "PASS"}, {"FieldName": "Invested_Fund1_Date", "Expected_Source": "View Investment Fund DB Query", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "01 Jun 2072", "Actual": "01 Jun 2072", "Status": "PASS"}, {"FieldName": "Invested_Fund_Total_Percentage", "Expected_Source": "Static", "Actual_Source": "OMNE_InvestmentsPage", "Expected": "100%", "Actual": "100%", "Status": "PASS"}, {"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Successful", "Status": "PASS"}], "Images": []}, {"TestCaseId": "TC_12_Ins_INDO_Android_Premium_Holiday_Activate_001", "ExecutionStatus": "FAIL", "FinishedAt": "2026-05-29 11:33:50", "ExecutionTime": "00:01:28", "Workflow": "MainExecutor", "TestType": "Positive", "ActualResult": "Env : STG (1.0_001)| Device : Google Pixel 7 | Policy Number: C0161429 | Sign In Successfully With User : indonesia25@mailsac.com | Logout From OMNE Failed due to :ValueError: Element locator '//*[@text=\"Log out\"]' did not match any elements. | Env : STG (1.0_001)| Device : Google Pixel 7 | Policy Number: 60589451 | Sign In Successfully With User : ghgjjkl@mailsac.com | Manage Policy Flow select Failed due to :Element locator 'android=new UiSelector().textContains(\"Manage\")' did not match any elements after 30 seconds", "Remark": "", "VerificationPoints": [{"FieldName": "Omne_Flow", "Expected_Source": "Static", "Actual_Source": "Omne_Application_Flow", "Expected": "Flow_Successful", "Actual": "Flow_Failed", "Status": "FAIL"}], "Images": []}];
+        const summary = {"total": 2, "passed": 1, "failed": 1, "skipped": 0};
+        let currentIndex = 0;
+        const listContainer = document.getElementById("test-list");
+
+        // Render test case cards
+        jobs.forEach((job, index) => {
+            const card = document.createElement("div");
+            card.className = `test-card ${job.ExecutionStatus}`;
+            card.onclick = () => showDetails(index);
+
+            const icon = document.createElement("div");
+            icon.className = "status-icon";
+            icon.textContent = job.ExecutionStatus === "PASS" ? "✅" :
+                               job.ExecutionStatus === "FAIL" ? "❌" : "⏭️";
+
+            const info = document.createElement("div");
+            info.className = "test-info";
+            info.innerHTML = `<h5>${job.TestCaseId}</h5>`;
+
+
+            card.appendChild(icon);
+            card.appendChild(info);
+
+            listContainer.appendChild(card);
+        });
+
+        // Show test case details
+        function showDetails(index) {
+            currentIndex = index;
+            document.querySelectorAll(".test-card").forEach(card => card.classList.remove("active"));
+            document.querySelectorAll(".test-card")[index].classList.add("active");
+
+            const job = jobs[index];
+            let verificationTable = "";
+            if (
+              job.VerificationPoints &&
+              job.VerificationPoints.length > 0
+            ) {
+              verificationTable += `
+              <h3>Verification Points</h3>
+              <table class="verification-table">
+                <thead>
+                  <tr>
+                    <th>Field Name</th>
+                    <th>Expected Source</th>
+                    <th>Actual Source</th>
+                    <th>Expected Result</th>
+                    <th>Actual Result</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+            `;
+
+            job.VerificationPoints.forEach(vp => {
+              const statusClass = vp.Status === "PASS" ? "status-pass" : "status-fail";
+              verificationTable += `
+                <tr>
+                  <td>${vp.FieldName}</td>
+                  <td>${vp.Expected_Source}</td>
+                  <td>${vp.Actual_Source}</td>
+                  <td>${vp.Expected}</td>
+                  <td>${vp.Actual}</td>
+                  <td class="${statusClass}">${vp.Status}</td>
+                </tr>
+              `;
+            });
+
+              verificationTable += "</tbody></table>";
+            }
+
+            let Screenshot = "";
+            job.Images.forEach(ig => {
+                let screenshot_path = ig
+                let split_screenshot_name = screenshot_path.split("/0")
+                let screenshot_name = split_screenshot_name[split_screenshot_name.length -1]
+                Screenshot += `
+                    <span>${screenshot_name}</span>
+                    <img src="${ig}" alt="image" class="screenshot-img">
+                `;
+            });
+            document.getElementById("details").innerHTML = `
+              <div class="details-box">
+                <h2>${job.TestCaseId}</h2>
+                <p>
+                  <strong>Status:</strong>
+                  <span class="${job.ExecutionStatus === 'PASS' ? 'status-pass' : 'status-fail'}">
+                    ${job.ExecutionStatus}
+                  </span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Finished At:</strong> ${job.FinishedAt} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Duration:</strong> ${job.ExecutionTime}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Executed by:</strong> FGZLPT250069
+                </p>
+                <p><strong>Workflow:</strong> ${job.Workflow} &nbsp;&nbsp; <strong>Type:</strong> ${job.TestType}</p>
+                <div class="result-row">
+                  <div class="result-column">
+                    <p class="result-label"><strong>Actual Result:</strong></p>
+                    <div class="scroll-box">
+                      ${job.ActualResult}
+                    </div>
+                  </div>
+                  <div class="result-column">
+                    <p class="result-label"><strong>Remark:</strong></p>
+                    <div class="scroll-box">
+                      ${job.Remark || ''}
+                    </div>
+                  </div>
+                </div>
+                  ${verificationTable}
+<!--                <div class="screenshot-box">-->
+<!--                    <h3>Screenshots</h3>-->
+<!--                    ${Screenshot}-->
+<!--                 </div>-->
+                ${job.Remark ? `<p><strong>Note:</strong> ${job.Remark}</p>` : ""}
+              </div>
+            `;
+        }
+        // Auto-load first test case
+        if (jobs.length > 0) {
+            showDetails(0);
+        }
+        // Insert summary counts
+        document.getElementById("total-count").textContent = summary.total;
+        document.getElementById("passed-count").textContent = summary.passed;
+        document.getElementById("failed-count").textContent = summary.failed;
+        document.getElementById("skipped-count").textContent = summary.skipped;
+
+        // Chart.js donut chart
+        const ctx = document.getElementById("summaryChart").getContext("2d");
+        new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Passed", "Failed", "Skipped"],
+          datasets: [{
+            data: [summary.passed, summary.failed, summary.skipped],
+            backgroundColor: ["#28a745", "#dc3545", "#ffc107"],
+            borderColor: ["#ffffff", "#ffffff", "#ffffff"],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                font: { size: 14 },
+                color: "#333"
+              }
+            },
+            title: {
+              display: true,
+              text: "Test Case Status Distribution",
+              font: { size: 18 },
+              color: "#333"
+            }
+          }
+        }
+        });
+        // Tab switching with animation
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-icon").forEach(icon => icon.classList.remove("active"));
+            document.querySelector(`.tab-icon[onclick="switchTab('${tabId}')"]`).classList.add("active");
+
+            document.querySelectorAll(".panel").forEach(panel => {
+              panel.classList.remove("active");
+            });
+
+            const targetPanel = document.getElementById(tabId);
+            targetPanel.style.display = "block";
+            setTimeout(() => targetPanel.classList.add("active"), 10);
+        }
+
+    </script>
+</body>
+</html>

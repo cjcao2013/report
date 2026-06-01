@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Execution Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+          font-family: 'Segoe UI', Roboto, sans-serif;
+          background-color: #f0f2f5;
+        }
+        .layout {
+          display: flex;
+          height: 100vh;
+          position: relative;        /* Ensures it sits above default flow */
+          z-index: 1;
+          position: sticky;
+        }
+        .vertical-tabs {
+          width: 80px;
+          background-color: #2c3e50;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding-top: 20px;
+        }
+        .tab-icon {
+          font-size: 24px;
+          color: white;
+          margin: 20px 0;
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        }
+        .tab-icon:hover {
+          transform: scale(1.2);
+          color: #00bfff;
+        }
+        .tab-icon.active {
+          color: #1abc9c;
+        }
+        .panel {
+          padding: 20px;
+          overflow-y: auto;
+          opacity: 0;
+          transform: translateY(10px);
+          transition: opacity 0.4s ease, transform 0.4s ease;
+          position: absolute;
+          width: calc(100% - 60px);
+          left: 60px;
+          top: 0;
+          height: 100%;
+          background-color: #f0f2f5;
+          z-index: 0;
+          pointer-events: none;
+        }
+        .panel.active {
+          opacity: 1;
+          transform: translateY(0);
+          z-index: 1;
+          pointer-events: auto;
+        }
+        .test-layout {
+          display: flex;
+        }
+        #test-list {
+          flex: 1;
+          background-color: #fff;
+          padding: 15px;
+          border-right: 2px solid #ccc;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+          max-height: 80vh;
+          overflow-y: auto;
+        }
+        #details {
+          flex: 2;
+          background-color: #fff;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .test-card {
+          display: flex;
+          align-items: center;
+          background-color: #fff;
+          border-left: 5px solid;
+          padding: 12px;
+          margin-bottom: 12px;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+          cursor: pointer;
+          transition: transform 0.2s ease;
+        }
+        .test-card:hover {
+          transform: scale(1.02);
+        }
+        .test-card.active {
+          background-color: #e6f7ff;
+          border-left-color: #007bff;
+        }
+        .PASSED { border-color: #28a745; }
+        .FAILED { border-color: #dc3545; }
+        .SKIPPED { border-color: #ffc107; }
+        .status-icon {
+          font-size: 20px;
+          margin-right: 12px;
+        }
+        .test-info h4 {
+          margin: 0;
+          font-size: 16px;
+        }
+        .test-info p {
+          margin: 2px 0;
+          font-size: 13px;
+          color: #555;
+        }
+        .details-box {
+          background-color: #fff;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+        .summary-box {
+          background-color: #fff;
+          padding: 30px;
+          border-radius: 10px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.05);
+          max-width: 900px;
+          margin: 30px auto;
+          text-align: center;
+        }
+        .summary-grid {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 40px;
+        }
+        .summary-details {
+          min-width: 250px;
+          padding: 20px;
+          background-color: #f8f9fa;
+          border: 1px solid #ccc;
+          border-radius: 10px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+          text-align: left;
+        }
+        .summary-details h3 {
+          margin-top: 0;
+        }
+        .summary-details p {
+          font-size: 16px;
+          margin: 8px 0;
+        }
+        .report-header {
+           position: sticky;
+           display: flex;
+           justify-content: space-between;
+           align-items: center;
+           background-color: #2c3e50;
+           color: white;
+           padding: 3px;
+           border-radius: 5px;
+           position: relative;        /* Ensures it sits above default flow */
+           z-index: 5;
+        }
+        .status-pass {
+          color: green;
+          font-weight: bold;
+        }
+
+        .status-fail {
+          color: red;
+          font-weight: bold;
+        }
+        .scroll-box {
+          height: 80px;       /* Adjust height as needed */
+          overflow-y: auto;
+          border: 2px solid #ccc;
+          padding: 0;
+          background-color: #f9f9f9;
+          font-size: 13px;
+          line-height: 1.4;
+          white-space: pre-wrap;   /* Preserves line breaks */
+          border-radius: 8px;
+          width: 400px;
+          font-family: Segoe UI;
+          margin:0
+          box-sizing: border-box;
+          display: flex;
+          align-items: flex-start;
+          justify-content: flex-start
+          text-align: left
+          vertical-align: top
+        }
+        .expected-label {
+          margin-top: 0;       /* Removes space above the label */
+          margin-bottom: 1px;  /* Optional: small space between label and box */
+          padding: 0;
+        }
+        .result-row {
+          display: flex;
+          gap: 20px; /* Space between columns */
+          margin-top: 10px;
+        }
+
+        .result-column {
+          flex: 1; /* Equal width columns */
+          max-width: 50%;
+        }
+
+        .result-label {
+          margin: 0;
+          padding: 0;
+          font-weight: 500;
+          font-size: 14px;
+          font-family: Segoe UI;
+        }
+        .verification-table {
+            width: 50%;
+            border-collapse: collapse;
+            margin-top: 1em;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+          }
+
+          .verification-table th,
+          .verification-table td {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            text-align: left;
+          }
+
+          .verification-table th {
+            background-color: #f4f4f4;
+            color: #333;
+          }
+
+          .verification-table tr:nth-child(even) {
+            background-color: #fafafa;
+          }
+
+          .verification-table tr:hover {
+            background-color: #f0f8ff;
+          }
+        .timestamp {
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 1;
+          }
+
+        .screenshot-box {
+            margin-top: 20px;
+        }
+        .screenshot-img {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+
+        .report-logo {
+            height: 60px; /* Adjust as needed */
+            width: 60px
+        }
+
+    </style>
+</head>
+<body>
+    <div class="report-header">
+            <img class="report-logo" src="D:/WorkSpace/code/omne-qa-mob-jp/CustomLibraries/FWD_logo.png">
+      <h1>OMNE Report [JP] — FAILURE</h1>
+        <div class="timestamp">Generated Time: 2026-06-01 22:59:36</div>
+    </div>
+    <div class="layout">
+        <div class="vertical-tabs">
+            <div class="tab-icon active" onclick="switchTab('results')" title="Test Results">🧪</div>
+            <div class="tab-icon" onclick="switchTab('summary')" title="Summary">📊</div>
+        </div>
+        <div id="results" class="panel active">
+        <div class="test-layout">
+          <div id="test-list" style="width: 30%; padding: 10px;">
+            <h3>Test Case List</h3>
+          </div>
+          <div id="details" style="width: 70%; padding: 10px;">
+            <h3>Loading first test case...</h3>
+          </div>
+          </div>
+        </div>
+        <div id="summary" class="panel">
+            <div class="summary-box">
+              <h2>Test Summary</h2>
+              <div class="summary-grid">
+                <canvas id="summaryChart" width="400" height="400"></canvas>
+                <div class="summary-details">
+                  <h3>📋 Test Result Summary</h3>
+                  <p><strong>Total Executed:</strong> <span id="total-count"></span></p>
+                  <p><strong>✅ Passed:</strong> <span id="passed-count"></span></p>
+                  <p><strong>❌ Failed:</strong> <span id="failed-count"></span></p>
+                  <p><strong>⏭️ Skipped:</strong> <span id="skipped-count"></span></p>
+                </div>
+              </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const jobs = [{"TestCaseId":"TC_08_Ins_JP_IOS_LIFEJ_Vanilla_Reissuance_of_Insurance_Policy_Certificate_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 22:36:29","ExecutionTime":"00:04:17","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 8000000413 | SignIn Successfully With User : jpinvestmentdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '8000000413'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 8000000413 | SignIn Successfully With User : jpinvestmentdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '8000000413'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 8000000413 | SignIn Successfully With User : jpinvestmentdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '8000000413'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_15_Ins_JP_IOS_Claim_outpatient_Surgery_Accident","ExecutionStatus":"FAIL","FinishedAt":"2026-06-01 10:41:07","ExecutionTime":"00:21:42","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com Outpatient surgery Claim Submitted Successfully | Transaction Status : In Progress | OPUS Hospitalisation Insert Details Failed due to :Element with locator 'xpath=//span[@id='operationDate']/div/input' not found. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com Outpatient surgery Claim Submitted Successfully | Transaction Status : In Progress | OPUS Hospitalisation Insert Details Failed due to :Element with locator 'xpath=//span[@id='operationDate']/div/input' not found. | OPUS Inquiry Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Body InjuredPart","Expected_Source":"TestData","Actual_Source":"","Expected":"背中・腰","Actual":"","Status":"FAIL"},{"FieldName":"Date of Accident","Expected_Source":"TestData","Actual_Source":"","Expected":"2023/01/01","Actual":"","Status":"FAIL"},{"FieldName":"Time of Accident","Expected_Source":"TestData","Actual_Source":"","Expected":"12:00","Actual":"","Status":"FAIL"},{"FieldName":"Accident Location","Expected_Source":"TestData","Actual_Source":"","Expected":"Tokoyo","Actual":"","Status":"FAIL"},{"FieldName":"Accident Situation","Expected_Source":"TestData","Actual_Source":"","Expected":"Car Accident","Actual":"","Status":"FAIL"},{"FieldName":"Drink Alcohol","Expected_Source":"TestData","Actual_Source":"","Expected":"N","Actual":"","Status":"FAIL"},{"FieldName":"is Traffic Accident","Expected_Source":"TestData","Actual_Source":"","Expected":"N","Actual":"","Status":"FAIL"},{"FieldName":"is File Reported","Expected_Source":"TestData","Actual_Source":"","Expected":"Y","Actual":"","Status":"FAIL"},{"FieldName":"Claimant","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"東京都豊島区東池袋 追加","Actual":"","Status":"FAIL"},{"FieldName":"Claim_Type","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Outpatient surgery","Actual":"","Status":"FAIL"},{"FieldName":"Cause of Incident","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Accident","Actual":"","Status":"FAIL"},{"FieldName":"PolicyNumber","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"9000018329","Actual":"","Status":"FAIL"},{"FieldName":"Date of First Consultation","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2023/01/01","Actual":"","Status":"FAIL"},{"FieldName":"Date of Surgery","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2023/01/15","Actual":"","Status":"FAIL"},{"FieldName":"Diagnosis Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"捻挫","Actual":"","Status":"FAIL"},{"FieldName":"Hospital Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"坂井医院","Actual":"","Status":"FAIL"},{"FieldName":"Surgery Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"経上顎洞的顎動脈結紮術","Actual":"","Status":"FAIL"},{"FieldName":"BankName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"三井住友銀行","Actual":"","Status":"FAIL"},{"FieldName":"BankAcc_Number","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"3246754","Actual":"","Status":"FAIL"},{"FieldName":"BranchName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"新潟支店","Actual":"","Status":"FAIL"},{"FieldName":"ReviewPage_Disclaimer1","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Actual":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer2","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Actual":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer3","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Actual":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Status":"PASS"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Successful","Status":"PASS"},{"FieldName":"OWB Case No","Expected_Source":"OPUS","Actual_Source":"View OWB Details DB Query","Expected":"7553158","Actual":"7553158","Status":"PASS"},{"FieldName":"OPUS_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_20_Ins_JP_IOS_Claim_Hospitalisation_illness","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 20:13:22","ExecutionTime":"00:08:57","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004131 | SignIn Successfully With User : jpclaim009@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004131 | SignIn Successfully With User : jpclaim009@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | FWD Insurance Flow of Submit claim Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_30_Ins_JP_IOS_Claim_outpatient_Surgery_illness_ShortStayRule","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 14:18:18","ExecutionTime":"00:15:04","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com | FWD Insurance Flow of Submit claim Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' was not visible in 30 seconds","Remark":"","VerificationPoints":[{"FieldName":"Claimant","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"東京都豊島区東池袋 追加","Actual":"","Status":"FAIL"},{"FieldName":"Claim_Type","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Outpatient surgery","Actual":"","Status":"FAIL"},{"FieldName":"Cause of Incident","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Illness","Actual":"","Status":"FAIL"},{"FieldName":"PolicyNumber","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"9000018329","Actual":"","Status":"FAIL"},{"FieldName":"Date of First Consultation","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2023/01/01","Actual":"","Status":"FAIL"},{"FieldName":"Date of Surgery","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2023/01/16","Actual":"","Status":"FAIL"},{"FieldName":"Diagnosis Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"特発性脈絡膜新生血管","Actual":"","Status":"FAIL"},{"FieldName":"Hospital Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"坂井医院","Actual":"","Status":"FAIL"},{"FieldName":"Surgery Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"経上顎洞的顎動脈結紮術","Actual":"","Status":"FAIL"},{"FieldName":"BankName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"三井住友銀行","Actual":"","Status":"FAIL"},{"FieldName":"BankAcc_Number","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"3246754","Actual":"","Status":"FAIL"},{"FieldName":"BranchName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"新潟支店","Actual":"","Status":"FAIL"},{"FieldName":"ReviewPage_Disclaimer1","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Actual":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer2","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Actual":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer3","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Actual":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Status":"PASS"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_05_Ins_JP_IOS_KLIP_Change_Credit_Card_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 15:27:50","ExecutionTime":"00:12:16","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｲ9711770115 | SignIn Successfully With User : jpuserqk13@mailsac.com | Transaction Success Page Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' did not match any elements after 30 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｲ9711770115 | SignIn Successfully With User : jpuserqk13@mailsac.com | Transaction Success Page Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' did not match any elements after 30 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｲ9711770115 | SignIn Successfully With User : jpuserqk13@mailsac.com | Transaction Success Page Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' did not match any elements after 30 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_36_Ins_JP_IOS_One_step_Onboard_01","ExecutionStatus":"FAIL","FinishedAt":"2026-05-29 22:18:17","ExecutionTime":"00:00:04","Workflow":"OMNE Executor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000016539 | One Step Onboarding Failed due to :No keyword with name 'One Step Onboarding' found.","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_05_Ins_JP_IOS_LIFEJ_JCB_Card_MultiplePolicy_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 23:30:06","ExecutionTime":"00:04:22","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 0400001853,0400001802 | SignIn Successfully With User : jpuat-rcc1@mailsac.com | FWD Insurance Flow of Manage Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '0400001853'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 0400001853,0400001802 | SignIn Successfully With User : jpuat-rcc1@mailsac.com | FWD Insurance Flow of Manage Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '0400001853'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_02_Ins_JP_IOS_KLIP_View_Policy_Information_002","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 23:32:50","ExecutionTime":"00:02:07","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9713710118 | SignIn Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`label == \"証券番号\"`][-1]/XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeTextField' did not match any elements after 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9713710118 | SignIn Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`label == \"証券番号\"`][-1]/XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeTextField' did not match any elements after 10 seconds | FWD Insurance Flow of ご契約一覧 Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`label == \"ご契約一覧 すべて表示\"`]/XCUIElementTypeOther[-1]' did not match any elements after 10 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_28_Ins_JP_IOS_Claim_Hospitalisation_illness_DateFormat_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 20:23:01","ExecutionTime":"00:08:59","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004131 | SignIn Successfully With User : jpclaim009@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004131 | SignIn Successfully With User : jpclaim009@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | FWD Insurance Flow of Submit claim Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_34_Ins_JP_IOS_Claim_Hospitalisation_illness_DateFormat_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 20:42:21","ExecutionTime":"00:09:02","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004131 | SignIn Successfully With User : jpclaim009@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004131 | SignIn Successfully With User : jpclaim009@mailsac.com | Upload Claim Document Failed due to :ValueError: Element locator 'chain=**/XCUIElementTypeOther[`label == 'Done'`]' did not match any elements. | FWD Insurance Flow of Submit claim Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_03_Ins_JP_IOS_KLIP_Vanilla_Surrende_ Policy_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 15:47:15","ExecutionTime":"00:08:30","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｲ9713280417 | SignIn Successfully With User : jpstgdata_2feb26_5@mailsac.com | FWD Insurance Flow of Manage Successful : Surrender for ｲ9713280417 Successfull | OWB Assign AND change Status Task Failed due to :Element 'xpath=(//span[text()='Start Next Job']//parent::button)[1]' not visible after 10 seconds. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｲ9713280417 | SignIn Successfully With User : jpstgdata_2feb26_5@mailsac.com | FWD Insurance Flow of Manage Successful : Surrender for ｲ9713280417 Successfull | OWB Assign AND change Status Task Failed due to :Element 'xpath=(//span[text()='Start Next Job']//parent::button)[1]' not visible after 10 seconds. | OWB Inquiry Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Policy_Name_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"False","Actual":"False","Status":"PASS"},{"FieldName":"Policy_Category_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"False","Actual":"False","Status":"PASS"},{"FieldName":"Policy_Status_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"False","Actual":"False","Status":"PASS"},{"FieldName":"Policy_Insured_For_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"False","Actual":"False","Status":"PASS"},{"FieldName":"Terms_And_Conditions_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"True","Actual":"True","Status":"PASS"},{"FieldName":"Surrender_Reason_DropDown_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"True","Actual":"True","Status":"PASS"},{"FieldName":"Change_Payment_Method_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"True","Actual":"True","Status":"PASS"},{"FieldName":"Add_Payment_Method_Flag","Expected_Source":"","Actual_Source":"OMNE_Application","Expected":"","Actual":"Yes","Status":"FAIL"},{"FieldName":"Transaction_Status","Expected_Source":"OMNE_Application","Actual_Source":"OWB Application","Expected":"In Progress","Actual":"In Progress","Status":"PASS"},{"FieldName":"Surrender_Reason","Expected_Source":"","Actual_Source":"OMNE_Application","Expected":"","Actual":"I want to use my budget elsewhere","Status":"FAIL"},{"FieldName":"Bank_Book_Code","Expected_Source":"","Actual_Source":"OMNE_Application","Expected":"","Actual":"11230","Status":"FAIL"},{"FieldName":"Bank_Book_Number","Expected_Source":"","Actual_Source":"OMNE_Application","Expected":"","Actual":"671","Status":"FAIL"},{"FieldName":"Bank_Name","Expected_Source":"","Actual_Source":"OMNE_Application","Expected":"","Actual":"ゆうちょ銀行","Status":"FAIL"},{"FieldName":"Policy_Applied","Expected_Source":"","Actual_Source":"OMNE_Application","Expected":"","Actual":"さいふにやさしい医療保険","Status":"FAIL"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Successful","Status":"PASS"},{"FieldName":"OWB Case No","Expected_Source":"OWB Application","Actual_Source":"","Expected":"7140104","Actual":"","Status":"FAIL"},{"FieldName":"OWB_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_38_Ins_JP_IOS_LIFEJ_Pending_Vanilla_Reissuance of Tax Deduction Certificate_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 16:45:47","ExecutionTime":"00:04:22","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000025902 | SignIn Successfully With User : jpstgdata511_2@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000025902'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000025902 | SignIn Successfully With User : jpstgdata511_2@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000025902'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000025902 | SignIn Successfully With User : jpstgdata511_2@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000025902'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_39_Ins_JP_IOS_KLIP_Pending_Vanilla_Reissuance of Tax Deduction Certificate_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 16:50:39","ExecutionTime":"00:04:18","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9723030919 | SignIn Successfully With User : jpklipdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9723030919'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9723030919 | SignIn Successfully With User : jpklipdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9723030919'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9723030919 | SignIn Successfully With User : jpklipdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9723030919'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_06_Ins_JP_IOS_LIFEJ_Vanilla_Reissuance of Tax Deduction Certificate_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 22:26:43","ExecutionTime":"00:04:18","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000025902 | SignIn Successfully With User : jpstgdata511_2@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000025902'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000025902 | SignIn Successfully With User : jpstgdata511_2@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000025902'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000025902 | SignIn Successfully With User : jpstgdata511_2@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000025902'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_06_Ins_JP_IOS_KLIP_Vanilla_Reissuance of Tax Deduction Certificate_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 22:31:33","ExecutionTime":"00:04:15","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9723030919 | SignIn Successfully With User : jpklipdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9723030919'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9723030919 | SignIn Successfully With User : jpklipdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9723030919'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9723030919 | SignIn Successfully With User : jpklipdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9723030919'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_29_Ins_JP_IOS_Claim_Hospitalisation_Accident_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 17:29:53","ExecutionTime":"00:10:01","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004131 | SignIn Successfully With User : jpclaim009@mailsac.com | Add Medical Center Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[starts-with(@name,\"Date of accident\")])[1]/preceding-sibling::XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeTextField[@name=\"date-input\"]' did not match any elements after 1 minute 40 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004131 | SignIn Successfully With User : jpclaim009@mailsac.com | Add Medical Center Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[starts-with(@name,\"Date of accident\")])[1]/preceding-sibling::XCUIElementTypeOther/XCUIElementTypeOther/XCUIElementTypeTextField[@name=\"date-input\"]' did not match any elements after 1 minute 40 seconds | FWD Insurance Flow of Submit claim Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Body InjuredPart","Expected_Source":"TestData","Actual_Source":"","Expected":"背中・腰","Actual":"","Status":"FAIL"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_45_Ins_JP_IOS_Claim_outpatient_Treatment_Post hospitalisation follow-up visits","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 17:46:18","ExecutionTime":"00:06:37","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004107 | SignIn Successfully With User : jpclaim009@mailsac.com | Outpatient treatment Failed due to :Insuarance dashboard | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004107 | SignIn Successfully With User : jpclaim009@mailsac.com | Outpatient treatment Failed due to :Insuarance dashboard | FWD Insurance Flow of Submit claim Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Diagnosis Name","Expected_Source":"TestData","Actual_Source":"","Expected":"細菌性胃腸炎","Actual":"","Status":"FAIL"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_46_Ins_JP_IOS_Claim_outpatient_Treatment_Post hospitalisation follow-up visits","ExecutionStatus":"FAIL","FinishedAt":"2026-05-29 21:32:45","ExecutionTime":"00:06:47","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004107 | SignIn Successfully With User : jpclaim009@mailsac.com | Outpatient treatment Failed due to :Insuarance dashboard | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000004107 | SignIn Successfully With User : jpclaim009@mailsac.com | Outpatient treatment Failed due to :Insuarance dashboard | FWD Insurance Flow of Submit claim Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Diagnosis Name","Expected_Source":"TestData","Actual_Source":"","Expected":"細菌性胃腸炎","Actual":"","Status":"FAIL"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_13_Ins_JP_IOS_KLIP_Change_Personal_Details_002","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 23:15:41","ExecutionTime":"00:05:43","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9732840230 | SignIn Successfully With User : jpuserqk15@mailsac.com | Transaction Success Page Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' was not visible in 30 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9732840230 | SignIn Successfully With User : jpuserqk15@mailsac.com | Transaction Success Page Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' was not visible in 30 seconds | Name Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9732840230 | SignIn Successfully With User : jpuserqk15@mailsac.com | Transaction Success Page Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' was not visible in 30 seconds | Name Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Old_Product_Owner_Name_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"True","Actual":"True","Status":"PASS"},{"FieldName":"Last_Name_Kanji_InputField_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"True","Actual":"True","Status":"PASS"},{"FieldName":"Last_Name_Kana_InputField_Visible","Expected_Source":"Static","Actual_Source":"OMNE_Application","Expected":"True","Actual":"True","Status":"PASS"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_05_Ins_JP_IOS_LIFEJ_Change_Bank_account_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 23:20:47","ExecutionTime":"00:04:29","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000038761 | SignIn Successfully With User : uatdatajp1310_1@mailsac.com | FWD Insurance Flow of Manage Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000038761'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000038761 | SignIn Successfully With User : uatdatajp1310_1@mailsac.com | FWD Insurance Flow of Manage Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS '9000038761'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_48_Ins_IOS_Profile_Email_Change_01","ExecutionStatus":"FAIL","FinishedAt":"2026-05-28 23:25:06","ExecutionTime":"00:03:44","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000032143 | SignIn Successfully With User : patrci_8@mailsac.com | FWD Insurance Flow of Change Email Through Profile Failed due to :Element locator 'accessibility_id=profile-icon-btn' did not match any elements after 5 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_15_Ins_JP_IOS_Claim_outpatient_Surgery_illness","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 20:23:27","ExecutionTime":"00:16:39","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com Outpatient surgery Claim Submitted Successfully | Transaction Status : ( | OPUS Hospitalisation Insert Details Failed due to :ValueError: Invalid timestamp ''. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com Outpatient surgery Claim Submitted Successfully | Transaction Status : ( | OPUS Hospitalisation Insert Details Failed due to :ValueError: Invalid timestamp ''. | OPUS Inquiry Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Claimant","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"東京都豊島区東池袋 追加","Actual":"","Status":"FAIL"},{"FieldName":"Claim_Type","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Outpatient surgery","Actual":"","Status":"FAIL"},{"FieldName":"Cause of Incident","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Illness","Actual":"","Status":"FAIL"},{"FieldName":"PolicyNumber","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"9000018329","Actual":"","Status":"FAIL"},{"FieldName":"Date of First Consultation","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2023/01/01","Actual":"","Status":"FAIL"},{"FieldName":"Date of Surgery","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2023/01/16","Actual":"","Status":"FAIL"},{"FieldName":"Diagnosis Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"特発性脈絡膜新生血管","Actual":"","Status":"FAIL"},{"FieldName":"Hospital Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"坂井医院","Actual":"","Status":"FAIL"},{"FieldName":"Surgery Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"経上顎洞的顎動脈結紮術","Actual":"","Status":"FAIL"},{"FieldName":"BankName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"三井住友銀行","Actual":"","Status":"FAIL"},{"FieldName":"BankAcc_Number","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"3246754","Actual":"","Status":"FAIL"},{"FieldName":"BranchName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"新潟支店","Actual":"","Status":"FAIL"},{"FieldName":"ReviewPage_Disclaimer1","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Actual":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer2","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Actual":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer3","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Actual":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Status":"PASS"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Successful","Status":"PASS"},{"FieldName":"OWB Case No","Expected_Source":"OPUS","Actual_Source":"View OWB Details DB Query","Expected":"7550980","Actual":"7550980","Status":"PASS"},{"FieldName":"OPUS_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_33_Ins_JP_IOS_Claim_outpatient_Surgery_illness","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 21:16:18","ExecutionTime":"00:02:52","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000018329 | SignIn Successfully With User : jpbenedata1@mailsac.com | FWD Insurance Flow of Submit claim Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`name CONTAINS \"claim\"`][-1]' did not match any elements after 1 minute 40 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_37_Ins_JP_IOS_LIFEJ_Pending_Management_Policy_Certificate_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 16:54:07","ExecutionTime":"00:02:53","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000006789 | SignIn Failed due to :Dictionary '${response.json()}' has no key 'unmaskedPhoneNumber'. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000006789 | SignIn Failed due to :Dictionary '${response.json()}' has no key 'unmaskedPhoneNumber'. | FWD Insurance Flow of Manage Failed due to :Element locator 'chain=**/XCUIElementTypeButton[`label == 'Insurance'`]' did not match any elements after 35 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_40_Ins_JP_IOS_KLIP_Pending_Management_Policy_Certificate_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 16:59:10","ExecutionTime":"00:04:25","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770456 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770456'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770456 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770456'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770456 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770456'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_03_Ins_JP_IOS_LIFEJ_Vanilla_Surrende_ Policy_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 15:49:31","ExecutionTime":"00:01:40","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000031856 | SignIn Successfully With User : jpstgdata_2feb26_3@mailsac.com | FWD Insurance Flow of Manage Failed due to :Element locator 'chain=**/XCUIElementTypeButton[`label == 'Insurance'`]' did not match any elements after 35 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_07_Ins_JP_IOS_KLIP_Pending_Management_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 17:09:26","ExecutionTime":"00:04:29","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_31_Ins_JP_IOS_LIFEJ_Claim_OutpatientSurgery_illness_PendingManagement","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 17:14:15","ExecutionTime":"00:04:15","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_31_Ins_JP_IOS_KLIP_Claim_OutpatientSurgery_illness_PendingManagement","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 17:19:16","ExecutionTime":"00:04:27","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: ｵ9927770452 | SignIn Successfully With User : jpclaimdata@mailsac.com | Select Policy Number Failed due to :Element 'chain=**/XCUIElementTypeOther[`label CONTAINS 'ｵ9927770452'`][-1]' did not appear in 10 seconds | FWD Insurance Flow of Manage Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :AssertionError","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_29_Ins_JP_IOS_Claim_Hospitalisation_Accident_002","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 17:34:28","ExecutionTime":"00:03:59","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000007777 | SignIn Failed due to :Dictionary '${response.json()}' has no key 'unmaskedPhoneNumber'. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000007777 | SignIn Failed due to :Dictionary '${response.json()}' has no key 'unmaskedPhoneNumber'. | FWD Insurance Flow of Submit claim Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`name CONTAINS \"claim\"`][-1]' did not match any elements after 1 minute 40 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_43_Ins_JP_IOS_Claim_OPUS_outpatient_Surgery_illness","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 17:39:05","ExecutionTime":"00:04:02","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000007777 | SignIn Failed due to :Dictionary '${response.json()}' has no key 'unmaskedPhoneNumber'. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000007777 | SignIn Failed due to :Dictionary '${response.json()}' has no key 'unmaskedPhoneNumber'. | FWD Insurance Flow of Submit claim Failed due to :Element locator 'chain=**/XCUIElementTypeOther[`name CONTAINS \"claim\"`][-1]' did not match any elements after 1 minute 40 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_15_Ins_JP_IOS_Claim_outpatient_Surgery_illness_STP","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 22:03:25","ExecutionTime":"00:15:41","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000029576 | SignIn Successfully With User : uatposthosp36@mailsac.com | FWD Insurance Flow of Submit claim Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' was not visible in 30 seconds","Remark":"","VerificationPoints":[{"FieldName":"Claimant","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"おむに 追加","Actual":"","Status":"FAIL"},{"FieldName":"Claim_Type","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Outpatient surgery","Actual":"","Status":"FAIL"},{"FieldName":"Cause of Incident","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Illness","Actual":"","Status":"FAIL"},{"FieldName":"PolicyNumber","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"9000029576","Actual":"","Status":"FAIL"},{"FieldName":"Date of First Consultation","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2024/10/10","Actual":"","Status":"FAIL"},{"FieldName":"Date of Surgery","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2024/10/11","Actual":"","Status":"FAIL"},{"FieldName":"Diagnosis Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"細菌性食中毒","Actual":"","Status":"FAIL"},{"FieldName":"Hospital Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"伊藤整形外科","Actual":"","Status":"FAIL"},{"FieldName":"Surgery Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"内視鏡的大腸ﾎﾟﾘｰﾌﾟ･粘膜切除術(長径2ｾﾝﾁﾒｰﾄﾙ未満)","Actual":"","Status":"FAIL"},{"FieldName":"BankName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"三井住友銀行","Actual":"","Status":"FAIL"},{"FieldName":"BankAcc_Number","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"3246754","Actual":"","Status":"FAIL"},{"FieldName":"BranchName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"新潟支店","Actual":"","Status":"FAIL"},{"FieldName":"ReviewPage_Disclaimer1","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Actual":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer2","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Actual":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer3","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Actual":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Status":"PASS"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_20_Ins_JP_IOS_Claim_Hospitalisation_illness_STP","ExecutionStatus":"FAIL","FinishedAt":"2026-05-31 22:19:32","ExecutionTime":"00:15:32","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000029576 | SignIn Successfully With User : uatposthosp36@mailsac.com | FWD Insurance Flow of Submit claim Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"My transaction(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' was not visible in 30 seconds","Remark":"","VerificationPoints":[{"FieldName":"Claimant","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"おむに 追加","Actual":"","Status":"FAIL"},{"FieldName":"Claim_Type","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Outpatient surgery","Actual":"","Status":"FAIL"},{"FieldName":"Cause of Incident","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"Illness","Actual":"","Status":"FAIL"},{"FieldName":"PolicyNumber","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"9000029576","Actual":"","Status":"FAIL"},{"FieldName":"Date of First Consultation","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2024/10/10","Actual":"","Status":"FAIL"},{"FieldName":"Date of Surgery","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"2024/10/11","Actual":"","Status":"FAIL"},{"FieldName":"Diagnosis Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"細菌性食中毒","Actual":"","Status":"FAIL"},{"FieldName":"Hospital Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"伊藤整形外科","Actual":"","Status":"FAIL"},{"FieldName":"Surgery Name","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"内視鏡的大腸ﾎﾟﾘｰﾌﾟ･粘膜切除術(長径2ｾﾝﾁﾒｰﾄﾙ未満)","Actual":"","Status":"FAIL"},{"FieldName":"BankName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"三井住友銀行","Actual":"","Status":"FAIL"},{"FieldName":"BankAcc_Number","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"3246754","Actual":"","Status":"FAIL"},{"FieldName":"BranchName","Expected_Source":"Omne_ReviewPage","Actual_Source":"","Expected":"新潟支店","Actual":"","Status":"FAIL"},{"FieldName":"ReviewPage_Disclaimer1","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Actual":"・ご提出の書類や入力内容について、お支払いの判断を行うために、FWD生命が必要と判断した場合は、通院証明書等の追加書類のご提出やお客さま・医療機関等に確認を実施させていただくことがあります。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer2","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Actual":"・支払金がある場合、当社から指定口座への送金完了をもって、請求者（受取人）は本請求への支払金を受領したものとします。","Status":"PASS"},{"FieldName":"ReviewPage_Disclaimer3","Expected_Source":"static","Actual_Source":"Claim Review page","Expected":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Actual":"・当社からの書面（「保険金・給付金等のお支払い手続き完了のお知らせ」など）は、ご登録上の住所にお送りします。","Status":"PASS"},{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_47_Ins_JP_IOS_Claim_outpatient_Treatment_Post hospitalisation follow-up visits","ExecutionStatus":"FAIL","FinishedAt":"2026-05-29 22:14:08","ExecutionTime":"00:08:28","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000029576 | SignIn Successfully With User : uatposthosp36@mailsac.com | FWD Insurance Flow of Submit claim Failed due to :WebDriverException: Message: An unknown server-side error occurred while processing the command. Original error: Could not proxy command to the remote server. Original error: socket hang up\nStacktrace:\nUnknownError: An unknown server-side error occurred while processing the command. Original error: Could not proxy command to the remote server. Original error: socket hang up\n    at JWProxy.command (/nix/store/0rlmb09rkr7qwnjx6770h5j6ikzgj50j-appium-2.0.0/packages/appium/xcuitest/4.21.6/node_modules/appium-xcuitest-driver/node_modules/@appium/base-driver/lib/jsonwp-proxy/proxy.js:342:13)\n    at runMicrotasks (<anonymous>)\n    at processTicksAndRejections (internal/process/task_queues.js:95:5)\n    at XCUITestDriver.proxyCommand (/nix/store/0rlmb09rkr7qwnjx6770h5j6ikzgj50j-appium-2.0.0/packages/appium/xcuitest/4.21.6/node_modules/appium-xcuitest-driver/lib/commands/proxy-helper.js:110:14)\n    at defaultBehavior (/nix/store/0rlmb09rkr7qwnjx6770h5j6ikzgj50j-appium-2.0.0/packages/appium/lib/appium.js:587:16)\n    at ImageElementPlugin.handle (/nix/store/0rlmb09rkr7qwnjx6770h5j6ikzgj50j-appium-2.0.0/packages/appium/xcuitest/4.21.6/node_modules/@appium/images-plugin/lib/plugin.js:77:12)\n    at /nix/store/0rlmb09rkr7qwnjx6770h5j6ikzgj50j-appium-2.0.0/packages/appium/lib/appium.js:647:16\n    at AppiumDriver.executeWrappedCommand (/nix/store/0rlmb09rkr7qwnjx6770h5j6ikzgj50j-appium-2.0.0/packages/appium/lib/appium.js:680:16)\n    at AppiumDriver.executeCommand (/nix/store/0rlmb09rkr7qwnjx6770h5j6ikzgj50j-appium-2.0.0/packages/appium/lib/appium.js:609:17)\n    at asyncHandler (/nix/store/0rlmb09rkr7qwnjx6770h5j6ikzgj50j-appium-2.0.0/packages/base-driver/lib/protocol/protocol.js:313:19)","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_05_Ins_JP_IOS_LIFEJ_Change_Credit_Card_Vanilla_001","ExecutionStatus":"FAIL","FinishedAt":"2026-05-29 22:17:34","ExecutionTime":"00:02:46","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000032143 | Insert OTP Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"We sent you a code\"])[1]/parent::XCUIElementTypeOther/XCUIElementTypeStaticText[2]' did not appear in 20 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000032143 | Insert OTP Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"We sent you a code\"])[1]/parent::XCUIElementTypeOther/XCUIElementTypeStaticText[2]' did not appear in 20 seconds | SignIn Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000032143 | Insert OTP Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"We sent you a code\"])[1]/parent::XCUIElementTypeOther/XCUIElementTypeStaticText[2]' did not appear in 20 seconds | SignIn Failed due to :AssertionError | FWD Insurance Flow of Manage Failed due to :Element locator 'chain=**/XCUIElementTypeButton[`label == 'Insurance'`]' did not match any elements after 35 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_02_Ins_JP_IOS_LIFEJ_View_Policy_Information_002","ExecutionStatus":"FAIL","FinishedAt":"2026-05-29 22:21:21","ExecutionTime":"00:02:23","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000040341 | Insert OTP Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"We sent you a code\"])[1]/parent::XCUIElementTypeOther/XCUIElementTypeStaticText[2]' did not appear in 20 seconds | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000040341 | Insert OTP Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"We sent you a code\"])[1]/parent::XCUIElementTypeOther/XCUIElementTypeStaticText[2]' did not appear in 20 seconds | SignIn Failed due to :AssertionError | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000040341 | Insert OTP Failed due to :Element 'xpath=(//XCUIElementTypeStaticText[@name=\"We sent you a code\"])[1]/parent::XCUIElementTypeOther/XCUIElementTypeStaticText[2]' did not appear in 20 seconds | SignIn Failed due to :AssertionError | FWD Insurance Flow of My policy(s) Failed due to :Element locator 'xpath=(//XCUIElementTypeStaticText[@name=\"My policy(s)\"])[1]/following-sibling::XCUIElementTypeOther[@name=\"See all\"]' did not match any elements after 10 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"},{"FieldName":"PolicyName1","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"FWD定期","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Type","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"定期保険","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_You're_covered_for","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"20000000.0","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Insured_For","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"保全","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Status","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"Active","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Number","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"9000040341","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Name","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"FWD定期","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_PremiumAmount","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"3446.0","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Started_On_Date","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"01 Oct 2025","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Ends_On_Date","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"01 Oct 2028","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Payment_method","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"Unused","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Riders1_PolicyName","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"定期保険","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Riders1_PremiumAmount","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"20000000.00","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Riders1_StartedOnDate","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"01 Oct 2025","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Riders1_EndsOnDate","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"01 Oct 2028","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Riders1_InsuredFor","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"保全","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Riders1_PolicyStatus","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"Active","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Riders1_PayPeriod","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"3","Actual":"","Status":"FAIL"},{"FieldName":"ViewPolicy_Riders1_CoveragePeriod","Expected_Source":"View Policy DB Query","Actual_Source":"","Expected":"3","Actual":"","Status":"FAIL"}],"Images":[]},{"TestCaseId":"TC_05_Ins_JP_IOS_LIFEJ_JCB_Card_MultiplePolicy_003_STP_NSTP","ExecutionStatus":"FAIL","FinishedAt":"2026-05-29 22:43:25","ExecutionTime":"00:03:13","Workflow":"MainExecutor","TestType":"Positive","ActualResult":"Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000006827,9000006771 | SignIn Failed due to :Dictionary '${response.json()}' has no key 'unmaskedPhoneNumber'. | Env : STG (1.0_001)| Device : iPhone 15 Pro Max | Policy Number: 9000006827,9000006771 | SignIn Failed due to :Dictionary '${response.json()}' has no key 'unmaskedPhoneNumber'. | FWD Insurance Flow of Manage Failed due to :Element locator 'chain=**/XCUIElementTypeButton[`label == 'Insurance'`]' did not match any elements after 35 seconds","Remark":"","VerificationPoints":[{"FieldName":"Omne_Flow","Expected_Source":"Static","Actual_Source":"Omne_Application_Flow","Expected":"Flow_Successful","Actual":"Flow_Failed","Status":"FAIL"}],"Images":[]}];
+        const summary = {"total":37,"passed":0,"failed":37,"skipped":0};
+        let currentIndex = 0;
+        const listContainer = document.getElementById("test-list");
+
+        // Render test case cards
+        jobs.forEach((job, index) => {
+            const card = document.createElement("div");
+            card.className = `test-card ${job.ExecutionStatus}`;
+            card.onclick = () => showDetails(index);
+
+            const icon = document.createElement("div");
+            icon.className = "status-icon";
+            icon.textContent = job.ExecutionStatus === "PASS" ? "✅" :
+                               job.ExecutionStatus === "FAIL" ? "❌" : "⏭️";
+
+            const info = document.createElement("div");
+            info.className = "test-info";
+            info.innerHTML = `<h5>${job.TestCaseId}</h5>`;
+
+
+            card.appendChild(icon);
+            card.appendChild(info);
+
+            listContainer.appendChild(card);
+        });
+
+        // Show test case details
+        function showDetails(index) {
+            currentIndex = index;
+            document.querySelectorAll(".test-card").forEach(card => card.classList.remove("active"));
+            document.querySelectorAll(".test-card")[index].classList.add("active");
+
+            const job = jobs[index];
+            let verificationTable = "";
+            if (
+              job.VerificationPoints &&
+              job.VerificationPoints.length > 0
+            ) {
+              verificationTable += `
+              <h3>Verification Points</h3>
+              <table class="verification-table">
+                <thead>
+                  <tr>
+                    <th>Field Name</th>
+                    <th>Expected Source</th>
+                    <th>Actual Source</th>
+                    <th>Expected Result</th>
+                    <th>Actual Result</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+            `;
+
+            job.VerificationPoints.forEach(vp => {
+              const statusClass = vp.Status === "PASS" ? "status-pass" : "status-fail";
+              verificationTable += `
+                <tr>
+                  <td>${vp.FieldName}</td>
+                  <td>${vp.Expected_Source}</td>
+                  <td>${vp.Actual_Source}</td>
+                  <td>${vp.Expected}</td>
+                  <td>${vp.Actual}</td>
+                  <td class="${statusClass}">${vp.Status}</td>
+                </tr>
+              `;
+            });
+
+              verificationTable += "</tbody></table>";
+            }
+
+            let Screenshot = "";
+            job.Images.forEach(ig => {
+                let screenshot_path = ig
+                let split_screenshot_name = screenshot_path.split("/0")
+                let screenshot_name = split_screenshot_name[split_screenshot_name.length -1]
+                Screenshot += `
+                    <span>${screenshot_name}</span>
+                    <img src="${ig}" alt="image" class="screenshot-img">
+                `;
+            });
+            document.getElementById("details").innerHTML = `
+              <div class="details-box">
+                <h2>${job.TestCaseId}</h2>
+                <p>
+                  <strong>Status:</strong>
+                  <span class="${job.ExecutionStatus === 'PASS' ? 'status-pass' : 'status-fail'}">
+                    ${job.ExecutionStatus}
+                  </span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Finished At:</strong> ${job.FinishedAt} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Duration:</strong> ${job.ExecutionTime}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                  <strong>Executed by:</strong> FGZLPT230023
+                </p>
+                <p><strong>Workflow:</strong> ${job.Workflow} &nbsp;&nbsp; <strong>Type:</strong> ${job.TestType}</p>
+                <div class="result-row">
+                  <div class="result-column">
+                    <p class="result-label"><strong>Actual Result:</strong></p>
+                    <div class="scroll-box">
+                      ${job.ActualResult}
+                    </div>
+                  </div>
+                  <div class="result-column">
+                    <p class="result-label"><strong>Remark:</strong></p>
+                    <div class="scroll-box">
+                      ${job.Remark || ''}
+                    </div>
+                  </div>
+                </div>
+                  ${verificationTable}
+<!--                <div class="screenshot-box">-->
+<!--                    <h3>Screenshots</h3>-->
+<!--                    ${Screenshot}-->
+<!--                 </div>-->
+                ${job.Remark ? `<p><strong>Note:</strong> ${job.Remark}</p>` : ""}
+              </div>
+            `;
+        }
+        // Auto-load first test case
+        if (jobs.length > 0) {
+            showDetails(0);
+        }
+        // Insert summary counts
+        document.getElementById("total-count").textContent = summary.total;
+        document.getElementById("passed-count").textContent = summary.passed;
+        document.getElementById("failed-count").textContent = summary.failed;
+        document.getElementById("skipped-count").textContent = summary.skipped;
+
+        // Chart.js donut chart
+        const ctx = document.getElementById("summaryChart").getContext("2d");
+        new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Passed", "Failed", "Skipped"],
+          datasets: [{
+            data: [summary.passed, summary.failed, summary.skipped],
+            backgroundColor: ["#28a745", "#dc3545", "#ffc107"],
+            borderColor: ["#ffffff", "#ffffff", "#ffffff"],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                font: { size: 14 },
+                color: "#333"
+              }
+            },
+            title: {
+              display: true,
+              text: "Test Case Status Distribution",
+              font: { size: 18 },
+              color: "#333"
+            }
+          }
+        }
+        });
+        // Tab switching with animation
+        function switchTab(tabId) {
+            document.querySelectorAll(".tab-icon").forEach(icon => icon.classList.remove("active"));
+            document.querySelector(`.tab-icon[onclick="switchTab('${tabId}')"]`).classList.add("active");
+
+            document.querySelectorAll(".panel").forEach(panel => {
+              panel.classList.remove("active");
+            });
+
+            const targetPanel = document.getElementById(tabId);
+            targetPanel.style.display = "block";
+            setTimeout(() => targetPanel.classList.add("active"), 10);
+        }
+
+    </script>
+</body>
+</html>
